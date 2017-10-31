@@ -161,7 +161,7 @@ uses input type password properly.
 10) Connect your Activity code to the network logic so when you click the Login button, then the login method on the Network layer is called. Try the debugger to verify that the server response with a token as expected.
 
 
-#### Part 1: Consuming TODO API and adding token with interceptor
+#### Part 2: Consuming TODO API and adding token with interceptor
 
 
 1) In order to consume the secure api you will need to add your token to each request you make to the server.
