@@ -23,7 +23,7 @@ uses input type password properly.
      ```groovy
        compile 'com.squareup.retrofit2:retrofit:2.3.0'
        compile 'com.squareup.retrofit2:converter-gson:2.3.0'
-       ``` 
+      ``` 
    
 4) Create an interface called NetworkService with the following code:
 
@@ -31,7 +31,7 @@ uses input type password properly.
          interface NetworkService
             {
             
-                  @POST( "users/login" )
+                  @POST( "user/login" )
                   Call<Token> login( @Body LoginWrapper user );            
             }
     
@@ -114,39 +114,110 @@ uses input type password properly.
         {
             Retrofit retrofit =
                 new Retrofit.Builder().baseUrl( BASE_URL ).addConverterFactory( GsonConverterFactory.create() ).build();
-            azureService = retrofit.create( NetworkService.class );
+            networkService = retrofit.create( NetworkService.class );
         }
     
         @Override
-        public void login( LoginWrapper loginWrapper, RequestCallback<Token> requestCallback )
+        public void login( final LoginWrapper loginWrapper, final RequestCallback<Token> requestCallback )
         {
-            Call<Token> call = networkService.login( loginWrapper );
-            try
+            backgroundExecutor.execute( new Runnable()
             {
-                Response<Token> execute = call.execute();
-    
-                if ( execute.errorBody() != null )
+                @Override
+                public void run()
                 {
-                    processServerError( requestCallback, execute.errorBody().byteStream() );
+                    Call<Token> call = networkService.login( loginWrapper );
+                    try
+                    {
+                        Response<Token> execute = call.execute();
+                        requestCallback.onSuccess( execute.body() );
+                    }
+                    catch ( IOException e )
+                    {
+                        requestCallback.onFailed( new NetworkException( null, e ) );
+                    }
                 }
-                else
-                {
+            } );
     
-                    requestCallback.onSuccess( execute.body() );
-                }
-            }
-            catch ( IOException e )
-            {
-                requestCallback.onFailed( new NetworkException( 0, null, e ) );
-            }
         }
+
+    }
 
       ```
      
-8) Create the custom NetworkException adn implement the processServerError method that displays a message to user.
+8) Create the custom NetworkException that extends the Exception class and has the constructor with a message and throwable.
+
+9) Add a Internet permission to the AndroidManifest file:
+      ```xml
+      <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+                package="com.eci.cosw.myapp">
+      
+        <uses-permission android:name="android.permission.INTERNET" />
+      
+        <application ...
+   
+      ```
 
 
-9) Connect your App to the network logic so when you click the Login button then the login method on the Network layer is called. Try the debugger to verify that the server response a token.
+10) Connect your Activity code to the network logic so when you click the Login button, then the login method on the Network layer is called. Try the debugger to verify that the server response with a token as expected.
+
+
+#### Part 1: Consuming TODO API and adding token with interceptor
+
+
+1) In order to consume the secure api you will need to add your token to each request you make to the server.
+To achieve this we are going to use the following interceptor in the *RetrofitNetwork* class:
+
+  ``` java
+    public void addSecureTokenInterceptor( final String token )
+    {
+        OkHttpClient.Builder httpClient = new OkHttpClient.Builder();
+        httpClient.addInterceptor( new Interceptor()
+        {
+            @Override
+            public okhttp3.Response intercept( Chain chain )
+                throws IOException
+            {
+                Request original = chain.request();
+
+                Request request = original.newBuilder().header( "Accept", "application/json" ).header( "Authorization",
+                                                                                                       "Bearer "
+                                                                                                           + token ).method(
+                    original.method(), original.body() ).build();
+                return chain.proceed( request );
+            }
+        } );
+        Retrofit retrofit =
+            new Retrofit.Builder().baseUrl( BASE_URL ).addConverterFactory( GsonConverterFactory.create() ).client(
+                httpClient.build() ).build();
+        networkService = retrofit.create( NetworkService.class );
+    }
+
+  ```
+
+
+2) We will use the *SharedPreferences* class to save the token so when we close our App and open it again we do not need to authenticate again:
+
+    https://developer.android.com/guide/topics/data/data-storage.html#pref
+
+
+3) Read and understand how to use the *SharedPreferences* so you save your token and you retrieve once the App is launched and started.
+
+
+4) Add the methods getTodos and createTodo to the *NetworkService* with the correct API path.
+
+
+5) Add the methods retrieve the TODO list and to create a TODO in the *Netowrk* interface.
+
+
+6) Implement the methods retrieve the TODO list and to create a TODO in the *RetrofiNetowrk* class.
+
+
+7) Create the proper layouts to display a TODO list and to create a TODO
+
+
+8) Connect your UI with the network logic and make sure the App works as expected.
+
+
 
 
 
